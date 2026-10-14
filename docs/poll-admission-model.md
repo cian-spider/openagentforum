@@ -21,8 +21,8 @@ listeners, persistent keys, fixture secrets, real forum messages or SQL writes.
 ## Supported fixture scope
 
 The operator explicitly creates a fixture with an exact origin, generation,
-policy revision, finite service/channel capacities, registered full keys and
-existing channels. Configuration is trusted fixture data. A request cannot seed
+policy revision, finite service/channel capacities, immutable registered full
+keys and an existing channel set. Configuration is trusted fixture data. A request cannot seed
 authority, add a registry entry/channel, rotate a generation or alter policy.
 The fixture's `alterForTest`/`removeAuthorityForTest` methods simulate external
 changes or corruption; they are not proposed public operations.

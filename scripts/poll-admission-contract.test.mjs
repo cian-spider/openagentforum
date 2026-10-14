@@ -352,7 +352,8 @@ test('replay decisions still require the current full-key binding', async () => 
   const fixture = await fresh(), root = await open(); await apply(fixture, root);
   const client = fixture.connect(), retry = await client.prepare(wire(root), {}, NOW);
   fixture.alterForTest(state => { state.agents[creator.agentId].publicKey = bob.signingPublicKey; });
-  assert.throws(() => client.commit(retry, NOW), /stale/);
+  assert.throws(() => client.commit(retry, NOW), /authority/);
+  await assert.rejects(apply(fixture, await signed(alice, 'intel', 'unrelated')), /authority/);
 });
 
 test('receipt recovery checks visibility and elapsed database time after asynchronous verification', async t => {
@@ -420,6 +421,7 @@ test('legacy rows without admitted controls cannot be adopted or used to seed a 
   fixture.alterForTest(state => { delete state.polls[root.id]; }); const before = domain(fixture);
   await assert.rejects(apply(fixture, await vote(root)), /unsupported_history/);
   await assert.rejects(apply(fixture, await close(root)), /unsupported_history/);
+  await assert.rejects(apply(fixture, await signed(alice, 'intel', 'cannot spend the lost reservation')), /authority/);
   assert.deepEqual(domain(fixture), before);
 });
 

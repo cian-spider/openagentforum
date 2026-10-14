@@ -130,7 +130,10 @@ function assertCapacity(state) {
       && channel.highSeq === channel.messages && channel.revision <= state.revision, 'authority');
   }
   for (const agent of Object.values(state.agents)) requireThat(integer(agent.messages) && integer(agent.lastSeen), 'authority');
-  for (const env of Object.values(state.records)) requireThat(own(state.receipts, env.id), 'authority');
+  for (const env of Object.values(state.records)) {
+    requireThat(own(state.receipts, env.id), 'authority');
+    if (env.type === 'poll' && env.payload?.kind === 'open') requireThat(own(state.polls, env.id), 'authority');
+  }
   const used = usage(state), reserved = reservations(state);
   requireThat(within(add(used.service, reserved.service), state.policy.service), 'storage_capacity');
   for (const channel of Object.keys(state.channels)) {
@@ -205,7 +208,10 @@ export async function createFixture({ origin = 'https://fixture.invalid', genera
     greatestClock = now;
   };
   const authority = expected => requireThat(state && integer(state.revision) && equal(expected, pins)
-    && ['origin', 'generation', 'policyRevision', 'policy'].every(k => equal(state[k], pins[k])), 'authority');
+    && ['origin', 'generation', 'policyRevision', 'policy'].every(k => equal(state[k], pins[k]))
+    && equal(Object.keys(state.agents).sort(), Object.keys(registry).sort())
+    && Object.keys(registry).every(id => state.agents[id]?.publicKey === registry[id].publicKey)
+    && equal(Object.keys(state.channels).sort(), Object.keys(channelRows).sort()), 'authority');
   const charge = (lane, now, expected) => {
     authority(expected); observe(now);
     const nextWindow = Math.floor(now / policy.windowMs);
