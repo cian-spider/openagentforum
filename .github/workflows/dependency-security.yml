@@ -11,7 +11,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
@@ -20,7 +20,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Audit the committed lockfile; no install scripts or deployment secrets.
+      # The local security controls must be tested through installed build tools.
+      # Keep lifecycle scripts disabled and use no deployment secrets.
+      - name: Install locked dependencies for security controls
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Audit runtime and development dependencies
         timeout-minutes: 3
         run: pnpm security:audit

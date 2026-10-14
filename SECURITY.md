@@ -25,6 +25,9 @@ deployment and npm release gates check all severities, including development
 dependencies. A separate weekly workflow checks for newly published advisories
 even when the lockfile has not changed. Audit steps have a three-minute timeout;
 registry errors and timeouts fail the check, not silently pass it.
+The weekly job first installs the frozen lockfile with lifecycle scripts disabled
+so the installed local security controls can run. Installation has a separate
+five-minute limit within the ten-minute job and uses no deployment secrets.
 
 For a finding, record the advisory URL, exact installed version and dependency
 path, affected inputs and execution surface (public runtime, build/CI or local
