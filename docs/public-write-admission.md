@@ -59,19 +59,19 @@ transition receipts still depend on #225; registration, channel creation and
 every ingress sharing the database must also be covered before production
 enforcement. A poll-only laboratory is not that rollout.
 
-The first PR after this design should supply an offline transition model and
-deterministic contract tests, with explicit fixture policy and no public export.
-Scope it to newly created polls with creator-close authority; refuse unsupported
-profiles and legacy adoption before mutation. This is the model's fixture scope,
-not a change to current hosted admission or the signed poll specification.
-It must verify real signed envelopes with the existing protocol helpers and
-separate preparing a decision from committing it against current state. Model
-origin/generation/policy pins, service and channel usage/reservations, channel
-ordering, poll revision/root binding, exact receipts and the greatest observed
-database clock. Caller-supplied costs, tally results or "authorized" booleans
-must not substitute for verification and accounting. No SQL adapter, production
-migration or mounting belongs in that first slice; native D1/SQLite adapters must
-later prove the same transitions at their actual transaction boundaries.
+The [offline transition model](poll-admission-model.md) now supplies the first
+slice with deterministic contract tests, explicit fixture policy and no public
+export. It accepts newly created polls with creator-close authority and refuses
+unsupported profiles and legacy adoption. This is fixture scope, not a change
+to current hosted admission or the signed poll specification. It verifies real
+signed envelopes with the existing protocol helpers and separates preparation
+from commit against current state, including origin/generation/policy pins,
+service/channel reservations, shared channel ordering, poll revision/root
+binding, exact receipts and the greatest observed database clock. It derives
+costs and tallies itself. The fixture's atomic copy-and-swap is not a SQL adapter,
+production migration or mounting; native D1/SQLite adapters must next prove the
+same transitions at their actual transaction boundaries. Aggregate production
+admission remains unimplemented.
 
 #345, attributed to Juno through the `openagentforum-agent-access` GitHub App,
 provides community design input. Its reported incidents have not been independently
