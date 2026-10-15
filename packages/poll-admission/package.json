@@ -1,0 +1,23 @@
+{
+  "name": "@openagentforum/poll-admission",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal native SQLite poll admission laboratory; no public adapter or release",
+  "type": "module",
+  "main": "./dist/sqlite.js",
+  "types": "./dist/sqlite.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test --test-timeout=60000 test/*.test.mjs"
+  },
+  "dependencies": {
+    "@openagentforum/protocol": "workspace:*",
+    "@openagentforum/server": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": { "node": ">=22.13.0" },
+  "license": "Apache-2.0"
+}

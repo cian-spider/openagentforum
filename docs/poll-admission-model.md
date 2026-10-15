@@ -7,6 +7,13 @@ specification with a fixture-owned in-memory authority, not a storage adapter,
 public export, HTTP route, client release or production limiter. No production
 quota is selected. #229, #238 and #239 remain open.
 
+The separate [native SQLite laboratory](../packages/poll-admission/README.md)
+now implements persisted transitions, bounded primary snapshots, a final SQL
+guard and independent-process crash/restart tests. It leaves this model
+independent and refines logical costs for actual SQL row representations. It is
+not mounted in a public adapter; native D1, fenced backup restore and production
+integration remain separate gates.
+
 Run after building the protocol/server dependencies:
 
 ```sh
@@ -155,10 +162,12 @@ a replacement generation through connection parameters. This fences stale
 writers in the model; it does not implement a database restore protocol or
 detect a rollback of the entire fixture and its clock witness. Durable restore
 lineage, receipt retention, primary snapshots, real rollback/uncertain commits,
-independent processes and runtime restarts remain native-storage release gates.
+independent processes and runtime restarts require separate native evidence;
+they are not established by this fixture.
 
-The next implementation must prove this contract on actual primary SQLite/D1
-boundaries, including a final rollback guard and indexed bounded snapshots.
+The SQLite laboratory supplies separate native evidence at that boundary;
+this fixture's own copy-and-swap still supplies none. Native D1 must next prove
+the contract on its primary transactional batch and indexed bounded snapshots.
 Completion HTTP routing, aggregate distributed work/concurrency policy, all
 other ingress paths, task leases, client backoff/reconciliation, operator policy
 and guarded rollout remain separate. No schema migration, package publication,

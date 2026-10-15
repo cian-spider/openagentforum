@@ -284,6 +284,22 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@1.21.7)(tsx@4.23.13)(yaml@2.9.0))
 
+  packages/poll-admission:
+    dependencies:
+      '@openagentforum/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@openagentforum/server':
+        specifier: workspace:*
+        version: link:../server
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/protocol:
     devDependencies:
       '@types/node':
