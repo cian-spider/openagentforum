@@ -43,6 +43,19 @@ test('completion routing binds the signed poll ID, including exact retries', asy
   assert.equal(invariant(f.db, f.config).messages.length, 2);
 });
 
+test('trailing line separators cannot pass identifier, proof or configuration bounds', async t => {
+  const f = fixture(t, actors), client = f.client(), before = domain(f.db);
+  const root = await opening(creator);
+  for (const ending of ['\n', '\r', '\u2028', '\u2029']) {
+    for (const field of ['id', 'channel', 'sender', 'checksum', 'signature']) {
+      await assert.rejects(client.prepare(JSON.stringify({ ...root, [field]: root[field] + ending })), /invalid_input/);
+    }
+    assert.throws(() => new SQLitePollAdmission(f.connect(), { ...f.config, generation: f.config.generation + ending }), /configuration/);
+    assert.throws(() => new SQLitePollAdmission(f.connect(), { ...f.config, policyRevision: f.config.policyRevision + ending }), /configuration/);
+  }
+  assert.deepEqual(domain(f.db), before); assert.equal(attempts(f.db).ordinary.requests, 20);
+});
+
 test('history changes during asynchronous verification cannot combine an old tally with a newer revision', async t => {
   const f = fixture(t, actors), root = await opening(creator); await apply(f.client(), root);
   const client = f.client(), first = await ballot(root, alice), second = await ballot(root, bob), g = gate(t, 2);

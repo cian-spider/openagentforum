@@ -47,6 +47,14 @@ export function need(ok: unknown, code: AdmissionCode): asserts ok {
 export const bytes = (text: string): number => Buffer.byteLength(text, 'utf8');
 export const safe = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 export const equal = (a: unknown, b: unknown): boolean => canonicalizeJson(a) === canonicalizeJson(b);
+// Negative character classes plus explicit lengths also reject trailing line
+// separators, which JavaScript's `$` assertion alone would allow.
+export const messageIdentifier = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+  && v.length <= 128 && !/[^a-zA-Z0-9_:-]/.test(v);
+export const channelIdentifier = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+  && v.length <= 128 && !/[^a-z0-9_-]/.test(v);
+export const agentIdentifier = (v: unknown): v is string => typeof v === 'string' && v.length === 22 && /^agent_[0-9a-f]{16}$/.test(v);
+export const hex = (v: unknown, length: number): v is string => typeof v === 'string' && v.length === length && !/[^0-9a-f]/i.test(v);
 export const FIXED_ROW_BYTES = 4096;
 export const GUARD_ROW_BYTES = 16384;
 export const RECEIPT_BYTES = 4096;
@@ -73,7 +81,9 @@ export function configuration(options: PollAdmissionOptions) {
     keys(copy, ['origin', 'generation', 'policyRevision', 'policy']);
     const url = new URL(copy.origin);
     need(url.protocol === 'https:' && url.origin === copy.origin && bytes(copy.origin) <= 256, 'configuration');
-    need(/^[0-9a-f]{64}$/.test(copy.generation) && /^[a-zA-Z0-9_.:-]{1,128}$/.test(copy.policyRevision), 'configuration');
+    need(hex(copy.generation, 64) && copy.generation === copy.generation.toLowerCase()
+      && typeof copy.policyRevision === 'string' && copy.policyRevision.length > 0 && copy.policyRevision.length <= 128
+      && !/[^a-zA-Z0-9_.:-]/.test(copy.policyRevision), 'configuration');
     const p = copy.policy;
     keys(p, ['service', 'channel', 'history', 'wireBytes', 'windowMs', 'preparationMs', 'attempts', 'captureRetention', 'wakeActive']);
     for (const cap of [p.service, p.channel]) {
@@ -122,12 +132,9 @@ export function parseWire(wire: string, policy: PollAdmissionPolicy): MessageEnv
   try { env = JSON.parse(wire); } catch { throw new PollAdmissionError('invalid_input'); }
   tree(env);
   need(env && typeof env === 'object' && !Array.isArray(env), 'invalid_input');
-  need(typeof env.id === 'string' && /^[a-zA-Z0-9_:-]{1,128}$/.test(env.id)
-    && typeof env.channel === 'string' && /^[a-z0-9_-]{1,128}$/.test(env.channel)
-    && typeof env.sender === 'string' && /^agent_[0-9a-f]{16}$/.test(env.sender)
+  need(messageIdentifier(env.id) && channelIdentifier(env.channel) && agentIdentifier(env.sender)
     && safe(env.sequence) && safe(env.timestamp)
-    && typeof env.checksum === 'string' && /^[0-9a-f]{64}$/i.test(env.checksum)
-    && typeof env.signature === 'string' && /^[0-9a-f]{128}$/i.test(env.signature), 'invalid_input');
+    && hex(env.checksum, 64) && hex(env.signature, 128), 'invalid_input');
   need(['poll', 'vote', 'intel'].includes(env.type) && env.payload !== undefined, 'unsupported_profile');
   return env;
 }

@@ -7,6 +7,7 @@ import { POLL_WORK_LIMITS } from '@openagentforum/server/polls';
 import { assertSqliteWalRuntime } from '../../server/dist/sqlite-runtime.js';
 import { PollAdmissionError, configuration, need, bytes, safe, equal, tree, parseWire, recordRow, recordCost,
   decodeRow, exact, refusal, fitsPollActionInput, within, plus, minus, columnCost, wireColumns,
+  messageIdentifier, channelIdentifier, agentIdentifier, hex,
   FIXED_ROW_BYTES, RECEIPT_BYTES, CAPTURE_BYTES, CLOSE_RESERVATION, CLOSE_HISTORY, MAX_IN_FLIGHT,
   type Capacity, type PollAdmissionOptions, type WriteRoute, type Lane, type Receipt, type ReceiptResult } from './contract.js';
 import { DB_NOW, SCHEMA_OBJECTS, arrivalColumns, wakeColumns, pollReference } from './schema.js';
@@ -162,14 +163,14 @@ export class SQLitePollAdmission {
   #agent(id: string): Agent | null {
     const row = this.#get('SELECT * FROM agents WHERE agent_id = ?', id);
     if (!row) return null;
-    need(/^agent_[0-9a-f]{16}$/.test(row.agent_id) && /^[0-9a-f]{64}$/.test(row.public_key)
+    need(agentIdentifier(row.agent_id) && hex(row.public_key, 64) && row.public_key === row.public_key.toLowerCase()
       && ['registered_at', 'message_count', 'last_seen'].every(k => safe(row[k])) && [0, 1].includes(row.wake_active), 'authority');
     return row as Agent;
   }
   #channel(name: string): Channel | null {
     const row = this.#get('SELECT * FROM channels WHERE name = ?', name);
     if (!row) return null;
-    need(['revision', 'high_seq', 'message_count', ...ledgerFields].every(k => safe(row[k]))
+    need(channelIdentifier(row.name) && ['revision', 'high_seq', 'message_count', ...ledgerFields].every(k => safe(row[k]))
       && row.high_seq === row.message_count
       && within(plus(used(row as Channel), reserved(row as Channel)), this.#config.policy.channel), 'authority');
     return row as Channel;
@@ -222,7 +223,7 @@ export class SQLitePollAdmission {
     let nodes = tree(root.env.payload) + (root.env.recipientKeys == null ? 0 : tree(root.env.recipientKeys));
     for (const row of rows) {
       if (first.total === 0) { need(row.id === null, 'authority'); break; }
-      need(typeof row.id === 'string' && /^[0-9a-f]{64}$/.test(row.public_key) && safe(row.registered_at)
+      need(messageIdentifier(row.id) && hex(row.public_key, 64) && row.public_key === row.public_key.toLowerCase() && safe(row.registered_at)
         && row.charge_bytes === recordCost(row as EnvelopeRow), 'authority');
       const env = decodeRow(row as EnvelopeRow);
       nodes += tree(env.payload) + (env.recipientKeys == null ? 0 : tree(env.recipientKeys));
@@ -261,7 +262,7 @@ export class SQLitePollAdmission {
       const env = parseWire(wire, p), close = env.type === 'poll' && env.payload?.kind === 'close';
       need(close ? lane === 'completion' && route.pollId === env.payload.pollId : lane === 'ordinary' && route.pollId === undefined, 'route');
       const target = env.type === 'vote' || close ? env.payload?.pollId : null;
-      need(target === null || typeof target === 'string' && /^[a-zA-Z0-9_:-]{1,128}$/.test(target), 'invalid_payload');
+      need(target === null || messageIdentifier(target), 'invalid_payload');
       const snapshot = this.#transaction(false, (): Snapshot => {
         const meta = this.#authority(), now = this.#time(meta);
         this.#fresh({ started, preparedAt, expiresAt }, now);
@@ -485,7 +486,7 @@ export class SQLitePollAdmission {
       need(old.length <= 1, 'authority'); retired.push(...old as typeof retired);
     }
     if (this.#config.policy.wakeActive && owner != null && bytes(JSON.stringify(env.payload)) <= 65536) {
-      need(typeof owner === 'string' && /^agent_[0-9a-f]{16}$/.test(owner) && safe(wakeSeq + 1), 'authority');
+      need(agentIdentifier(owner) && safe(wakeSeq + 1), 'authority');
       const row = { seq: ++wakeSeq, envelope_id: env.id, stored_at: now, owner_after: '', owner_until: owner };
       rows.push(row); totalBytes += columnCost(wakeColumns.map(k => row[k as keyof typeof row]));
       const old = this.#all(`SELECT m.channel, w.charge_bytes FROM wake_message_outbox w JOIN messages m ON m.id = w.envelope_id

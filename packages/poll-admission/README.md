@@ -207,7 +207,7 @@ schema, clocks, limits and no request-time initialization. Differential tests
 compare signed records, receipts, captures and tallies with the independent model.
 The existing hosted SQL reader verifies records written by the lab.
 
-October 15, 2026 local validation on Node 22.23.3 passed all 57 native tests,
+October 15, 2026 local validation on Node 22.23.3 passed all 58 native tests,
 frozen installation, the full workspace build and suite with normal parallelism,
 generated-document checks and the all-severity dependency audit. Current-head
 PR checks remain required; these local results are not deployment evidence.
