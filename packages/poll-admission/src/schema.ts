@@ -212,7 +212,8 @@ const matched = (alias: string, fields: string[], json: string) => fields.map(k 
 const channelFields = ['name', 'revision', 'high_seq', 'message_count', 'used_rows', 'used_bytes', 'reserved_rows', 'reserved_bytes'];
 const controlFields = ['root_id', 'root_hash', 'channel', 'creator', 'creator_key', 'revision', 'close_recorded', 'reserved_rows', 'reserved_bytes',
   'reserve_records', 'reserve_bytes', 'reserve_nodes', 'history_records', 'history_bytes', 'history_nodes'];
-export const FINAL_GUARD_SQL = `CREATE TRIGGER poll_admission_final_guard BEFORE DELETE ON poll_admission_guard
+/** The D1 variant also advances the durable clock within the final DELETE. */
+export const finalGuardSql = (afterChecks = '') => `CREATE TRIGGER poll_admission_final_guard BEFORE DELETE ON poll_admission_guard
   BEGIN
     SELECT CASE WHEN COALESCE((
       EXISTS (SELECT 1 FROM poll_admission_authority a WHERE a.id = 1
@@ -236,8 +237,9 @@ export const FINAL_GUARD_SQL = `CREATE TRIGGER poll_admission_final_guard BEFORE
            AND c.history_nodes + c.reserve_nodes <= json_extract(OLD.policy_json, '$.history.nodes')))
       AND EXISTS (SELECT 1 FROM public_recent_state WHERE id = 1 AND high_seq = json_extract(OLD.expected_json, '$.arrival_seq'))
       AND EXISTS (SELECT 1 FROM wake_recent_state WHERE id = 1 AND high_seq = json_extract(OLD.expected_json, '$.wake_seq'))
-    ), 0) = 0 THEN RAISE(ABORT, 'poll_admission_final_guard') END;
+    ), 0) = 0 THEN RAISE(ABORT, 'poll_admission_final_guard') END;${afterChecks}
   END`;
+export const FINAL_GUARD_SQL = finalGuardSql();
 definitions.push(FINAL_GUARD_SQL);
 
 export const POLL_ADMISSION_SCHEMA = definitions.join(';\n') + ';';

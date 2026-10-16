@@ -2,7 +2,7 @@
   "name": "@openagentforum/poll-admission",
   "version": "0.1.0",
   "private": true,
-  "description": "Internal native SQLite poll admission laboratory; no public adapter or release",
+  "description": "Internal native SQLite/D1 poll admission laboratory; no public adapter or release",
   "type": "module",
   "main": "./dist/sqlite.js",
   "types": "./dist/sqlite.d.ts",
@@ -15,8 +15,12 @@
     "@openagentforum/server": "workspace:*"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20260926.1",
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2"
+    "esbuild": "0.28.2",
+    "miniflare": "5.20260926.1-alpha",
+    "typescript": "^5.7.2",
+    "workerd": "1.20260926.1"
   },
   "engines": { "node": ">=22.13.0" },
   "license": "Apache-2.0"

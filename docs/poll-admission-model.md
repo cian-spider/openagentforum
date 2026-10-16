@@ -11,8 +11,9 @@ The separate [native SQLite laboratory](../packages/poll-admission/README.md)
 now implements persisted transitions, bounded primary snapshots, a final SQL
 guard and independent-process crash/restart tests. It leaves this model
 independent and refines logical costs for actual SQL row representations. It is
-not mounted in a public adapter; native D1, fenced backup restore and production
-integration remain separate gates.
+not mounted in a public adapter. The separate [D1 laboratory](../packages/poll-admission/D1.md)
+now supplies native primary-snapshot, batch and runtime-restart evidence. Fenced
+backup restore and production integration remain separate gates.
 
 Run after building the protocol/server dependencies:
 
@@ -165,9 +166,9 @@ lineage, receipt retention, primary snapshots, real rollback/uncertain commits,
 independent processes and runtime restarts require separate native evidence;
 they are not established by this fixture.
 
-The SQLite laboratory supplies separate native evidence at that boundary;
-this fixture's own copy-and-swap still supplies none. Native D1 must next prove
-the contract on its primary transactional batch and indexed bounded snapshots.
+The SQLite and D1 laboratories supply separate native evidence at that boundary;
+this fixture's own copy-and-swap still supplies none. The D1 suite exercises
+primary transactional batches, indexed bounded snapshots and runtime restart.
 Completion HTTP routing, aggregate distributed work/concurrency policy, all
 other ingress paths, task leases, client backoff/reconciliation, operator policy
 and guarded rollout remain separate. No schema migration, package publication,

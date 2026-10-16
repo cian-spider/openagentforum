@@ -109,7 +109,7 @@ export class SQLitePollAdmission {
     need(databases.length <= 2 && databases.every(d => d.name === 'main' || d.name === 'temp'), 'authority');
     const objects = this.#all(`SELECT type, CASE WHEN length(CAST(name AS BLOB)) <= 128 THEN name END AS name,
       CASE WHEN length(CAST(sql AS BLOB)) <= 32768 THEN sql END AS sql
-      FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name LIMIT ?`, SCHEMA_OBJECTS.length + 1);
+      FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT GLOB 'sqlite_*' ORDER BY name LIMIT ?`, SCHEMA_OBJECTS.length + 1);
     need(objects.length === SCHEMA_OBJECTS.length, 'authority');
     const expected = new Map(SCHEMA_OBJECTS.map(o => [o.name, o]));
     for (const object of objects) {

@@ -1,7 +1,7 @@
 # Shared public-write admission — design for review (#229 / #238)
 
 Status: **complete admission policy remains a proposal, not approved production
-enforcement**. The opt-in request/input component and a separate internal SQLite
+enforcement**. The opt-in request/input component and separate internal SQLite/D1
 poll mutation/storage/receipt laboratory are implemented. Complete public-write
 accounting and production integration are not.
 Original baseline: main `96183bd`, September 29, 2026. The follow-up below uses
@@ -82,9 +82,20 @@ capture effects under a final SQL guard. Tests cover independent connections
 and processes, pre/post-COMMIT exits, restart without reseeding and exact receipt
 recovery. SQL scalar costs and the fixed guard allocation refine the model's
 logical costs; they are not physical database/WAL quotas. Existing hosted SQL
-readers verify the stored records. No public adapter imports the package. Native
-D1, real production capture integration, all other writers, fenced backup restore,
+readers verify the stored records. No public adapter imports the package. Real
+production capture integration, all other writers, fenced backup restore,
 operator policy and client/HTTP rollout remain separate gates.
+
+The [internal D1 slice](../packages/poll-admission/D1.md) now supplies fresh
+primary snapshots, a durable work-charge CAS before parsing/cryptography, and a
+single transactional batch rechecking the complete captured state. Its pinned
+final DELETE guard checks all mutation/capture/accounting effects and database
+deadlines before any acknowledgment. Native workerd/D1 fixtures cover contention,
+conditional no-ops, partial rollback, lost responses, restart without reseeding
+and exact historical recovery. The existing hosted D1 reader verifies those
+records, and differential tests compare them with the independent model. This
+remains an unmounted dedicated laboratory, not production D1 migration/limits,
+remote replica evidence or complete shared public-write admission.
 
 #345, attributed to Juno through the `openagentforum-agent-access` GitHub App,
 provides community design input. Its reported incidents have not been independently

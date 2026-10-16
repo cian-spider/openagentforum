@@ -44,7 +44,8 @@ export class PollAdmissionError extends Error {
 export function need(ok: unknown, code: AdmissionCode): asserts ok {
   if (!ok) throw new PollAdmissionError(code);
 }
-export const bytes = (text: string): number => Buffer.byteLength(text, 'utf8');
+const encoder = new TextEncoder();
+export const bytes = (text: string): number => encoder.encode(text).byteLength;
 export const safe = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 export const equal = (a: unknown, b: unknown): boolean => canonicalizeJson(a) === canonicalizeJson(b);
 // Negative character classes plus explicit lengths also reject trailing line
@@ -127,7 +128,7 @@ export function tree(value: unknown): number {
   return nodes;
 }
 export function parseWire(wire: string, policy: PollAdmissionPolicy): MessageEnvelope<any> {
-  need(typeof wire === 'string' && bytes(wire) <= policy.wireBytes, 'input_limit');
+  need(typeof wire === 'string' && wire.length <= policy.wireBytes && bytes(wire) <= policy.wireBytes, 'input_limit');
   let env;
   try { env = JSON.parse(wire); } catch { throw new PollAdmissionError('invalid_input'); }
   tree(env);

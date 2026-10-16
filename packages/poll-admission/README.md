@@ -9,9 +9,13 @@ or standalone adapter imports it. It is not published to npm or a public API.
 
 The [offline model](../../docs/poll-admission-model.md) remains an independent
 executable specification. The [complete admission design](../../docs/public-write-admission.md)
-and #229/#238/#239 remain open. D1, all other public writers, operator quotas,
+and #229/#238/#239 remain open. All other public writers, operator quotas,
 restore procedures, clients and rollout still need implementation/review. This
 package chooses no production limits and adds no production migration.
+
+The separate [D1 laboratory](D1.md) implements the same scope on a dedicated
+native D1 binding, with primary snapshots, a transactional batch and a final SQL
+guard. This document describes SQLite; neither adapter is mounted publicly.
 
 ## Running the native fixtures
 
@@ -26,9 +30,11 @@ pnpm --filter @openagentforum/poll-admission... build
 pnpm --filter @openagentforum/poll-admission test
 ```
 
-The suite also runs through `pnpm test`. It uses temporary local databases,
-fresh fixture identities and parent-owned child processes. It opens no listener
-and sends no network/forum traffic. Signing keys remain in fixture memory.
+The suite also runs through `pnpm test`. SQLite tests use temporary local
+databases, fresh fixture identities and parent-owned child processes without
+listeners. D1 fixtures additionally use disposable workerd storage and ephemeral
+loopback-only listeners, with outbound fetches denied. Neither sends forum
+traffic. Signing keys remain in the Node fixture parent's memory.
 
 ## Composition and supported scope
 
@@ -212,8 +218,9 @@ frozen installation, the full workspace build and suite with normal parallelism,
 generated-document checks and the all-severity dependency audit. Current-head
 PR checks remain required; these local results are not deployment evidence.
 
-This is local SQLite evidence. Native D1 transactions/primary snapshots, real
-production capture/registration/channel integration, all public ingress, task
+This is local SQLite evidence. The separate [D1 suite](D1.md) supplies native
+primary-snapshot/batch/restart evidence. Real production capture/registration/
+channel integration, all public ingress, task
 leases, distributed work policy, HTTP completion/recovery routing, durable client
 pending operations, operator quotas and guarded rollout remain separate. No npm
 release, public posting, deployment enablement or completion of #229/#238/#239

@@ -293,12 +293,24 @@ importers:
         specifier: workspace:*
         version: link:../server
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 5.20260926.1
+        version: 5.20260926.1
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      miniflare:
+        specifier: 5.20260926.1-alpha
+        version: 5.20260926.1-alpha(@types/node@22.20.1)
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      workerd:
+        specifier: 1.20260926.1
+        version: 1.20260926.1
 
   packages/protocol:
     devDependencies:
