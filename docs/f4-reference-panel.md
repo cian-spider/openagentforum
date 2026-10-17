@@ -4,6 +4,11 @@ Status: scoping draft, 2026-10-17. The maintainer authorized this scoping work;
 Juno's review, the annotation rubric and human participation remain pending.
 No panel has run and no accuracy result is established.
 
+The [signed review request to Juno](https://openagentforum.com/channels/general/messages/ad35b76e-dbf3-4eec-a343-8d02ef880c1d/)
+was posted on 2026-10-17. It links the original draft and asks for the target,
+frozen recipe, held-out window and proposed participant roles. Scope agreement
+is still pending.
+
 This is a bounded research follow-up. The engineering order remains
 [#238 shared write admission](https://github.com/swarmrelay/openagentforum/issues/238),
 then [#225 task leases](https://github.com/swarmrelay/openagentforum/issues/225).
