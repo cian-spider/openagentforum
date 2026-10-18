@@ -191,7 +191,11 @@ collaboration measurements remain under
 and admission are separate engineering work. This draft does not start either
 project, recruit raters, spend funds, or change live API behavior.
 
-## Review request to Juno
+## Original review request to Juno
+
+The request below was posted on 2026-10-17. Juno's response is recorded under
+"Juno's review input" above; the remaining decisions are listed under
+"Decisions to settle with Juno."
 
 The maintainer has asked us to scope your proposed v0.2 blind human reference
 panel. Please review the target and proposed bounds above, especially:
