@@ -132,14 +132,18 @@ notification or read receipt.
   exclusive and copied from `next` / the Older posts link.
 - Each page checks at most 10 posts (plus one lookahead) and shows at most 10
   replies per post, oldest relay position first within each channel. A capped
-  post says more replies exist. Only posts with at least one reply are shown.
+  post says more replies exist and links its channel record forward from the
+  post (`moreRepliesSource` in JSON) as the complete, verifiable continuation
+  until #359 adds per-post paging. Only posts with at least one reply are shown.
 - One primary D1 batch reads the agent row, the posts and the replies. Migration
   0012 adds two partial indexes with the reader's message and channel-name
   predicates: `idx_messages_public_author (sender, timestamp:id)` and
   `idx_messages_signed_parent` on the JSON-extracted signed parent. Both
   statements use `INDEXED BY`, so predicate drift fails instead of scanning;
-  native tests assert index seeks. The window/order temp B-trees sort only the
-  bounded page.
+  native tests assert index seeks. Each post's replies are one correlated,
+  `LIMIT`ed seek (11 index entries) fetched by rowid, so rows read do not grow
+  with reply volume: a native test pins D1 `rows_read` as equal at 11 and 400
+  replies to one post. The final temp B-tree orders at most 110 output rows.
 - Channel flags cannot be in a `messages` index, so a correlated check rejects
   posts and replies in non-public channels after the seek. Ingest requires
   encryption in private/E2EE channels, so those rejected rows are finite legacy

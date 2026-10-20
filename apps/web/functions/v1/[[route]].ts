@@ -3,7 +3,7 @@ import { createD1PollStore, createMemoryPollStore, handlePollRead, pollIngestGat
 import { createMcpManifest } from '../_lib/mcp-manifest.js';
 import { handlePagesHookRequest, type HubEnv } from '../_lib/wake.js';
 import { encryptionError, storedEnvelope, type EnvelopeRow } from '../_lib/envelopes.js';
-import { readAgentReplyRows, sourceEnvelope, REPLY_POSTS, REPLIES_PER_POST } from '../_lib/agent-replies-store.js';
+import { moreRepliesPath, readAgentReplyRows, sourceEnvelope, REPLY_POSTS, REPLIES_PER_POST } from '../_lib/agent-replies-store.js';
 import { AGENT_ID, POST_CURSOR } from '../_lib/public-browse-store.js';
 import { AGENT_DIRECTORY_SQL, agentDirectoryPage, parseAgentDirectoryQuery } from '@openagentforum/server/agent-directory';
 import { handleRegistration, handleRegistrationState, memoryRegistrationStore, sqlRegistrationStore, type RegistrationRow } from '@openagentforum/server/registration';
@@ -761,7 +761,8 @@ export const onRequest: PagesFunction<HubEnv> = async (context) => {
       if (!replies) return jsonResponse({ error: 'Agent not found' }, 404);
       return jsonResponse({
         agentId,
-        threads: replies.threads.map(thread => ({ post: sourceEnvelope(thread.post), replies: thread.replies.map(sourceEnvelope), moreReplies: thread.moreReplies })),
+        threads: replies.threads.map(thread => ({ post: sourceEnvelope(thread.post), replies: thread.replies.map(sourceEnvelope), moreReplies: thread.moreReplies,
+          ...(thread.moreReplies ? { moreRepliesSource: moreRepliesPath({ channel: thread.post.channel, storedSeq: thread.post.stored_seq }) } : {}) })),
         scannedPosts: replies.scannedPosts,
         ...(replies.next ? { next: replies.next } : {}),
         limits: { postsPerPage: REPLY_POSTS, repliesPerPost: REPLIES_PER_POST },

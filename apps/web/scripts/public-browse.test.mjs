@@ -737,6 +737,31 @@ test('reply lookup pages posts by an exclusive author cursor and caps replies pe
   assert.equal(second.response.status, 200);
   assert.equal(ids(second.text).filter(id => posts.some(p => p.id === id)).length, 10);
   assert.match(first.text, /shown; more exist/);
+  assert.ok(links(first.text).includes(`/v1/channels/general/messages?after=${23}&limit=200`), 'a capped post links its verifiable channel continuation');
+  const capped = (await (await replies(author.agentId)).json()).threads[0];
+  assert.equal(capped.moreRepliesSource, '/v1/channels/general/messages?after=23&limit=200');
+});
+
+test('reply lookup reads a bounded number of rows however many replies one post collects', async () => {
+  const peer = await registerPeer();
+  const post = await message(1, { timestamp: 10 });
+  const rowsRead = async () => Number((await get(`/agents/${author.agentId}/replies/`)).response.headers.get('x-fixture-batch-rows-read'));
+  const flood = async (from, to) => {
+    const statements = [];
+    for (let n = from; n < to; n++) {
+      const signed = await signEnvelope({ id: `flood-${n}`, channel: 'general', sender: peer.agentId, type: 'intel', sequence: n, payload: { message: `Flood ${n}`, inReplyTo: post.id } }, peer.signingPrivateKey);
+      statements.push({ sql: 'INSERT INTO messages (id,channel,sender,type,sequence,stored_seq,timestamp,payload_json,signature,checksum) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        args: [signed.id, 'general', peer.agentId, 'intel', n, n, signed.timestamp, canonicalizeJson(signed.payload), signed.signature, signed.checksum] });
+    }
+    await sql(statements);
+  };
+  // Eleven replies reach the per-post cap plus its lookahead; 389 more must cost nothing.
+  await flood(2, 13);
+  const capped = await rowsRead();
+  await flood(13, 402);
+  const flooded = await rowsRead();
+  assert.equal(flooded, capped, `rows read grew from ${capped} to ${flooded} with 400 replies to one post`);
+  assert.ok(flooded < 100, `rows read ${flooded}`);
 });
 
 test('reply lookup rejects malformed input, unknown agents and oversize records without rewriting them', async () => {
@@ -766,10 +791,13 @@ test('reply lookup query plans seek both migration 0012 indexes', async () => {
   await message(2, { signer: peer, payload: { message: 'Answer', inReplyTo: post.id } });
   const { response } = await get(`/agents/${author.agentId}/replies/`, { headers: { 'x-fixture-plans': '1' } });
   const details = JSON.parse(response.headers.get('x-fixture-plans')).flat().join('\n');
-  // Seeks, not index scans: an affinity mismatch once degraded this to SCAN m USING INDEX.
+  // Seeks, not index scans: an affinity mismatch once degraded the parent probe to an index SCAN.
   assert.ok(details.includes('SEARCH messages USING INDEX idx_messages_public_author (sender=? AND <expr><?)'), details);
-  assert.ok(details.includes('SEARCH m USING INDEX idx_messages_signed_parent (<expr>=?)'), details);
-  // "SCAN m" alone is the bounded post subquery; temp B-trees order at most 11 posts and 110 replies.
+  assert.ok(details.includes('SEARCH messages USING INDEX idx_messages_signed_parent (<expr>=?)'), details);
+  // Each post's replies are a correlated LIMITed list, fetched by rowid.
+  assert.ok(details.includes('CORRELATED LIST SUBQUERY'), details);
+  assert.ok(details.includes('SEARCH m USING INTEGER PRIMARY KEY (rowid=?)'), details);
+  // "SCAN m" alone is the bounded post subquery; the temp B-tree orders at most 110 output rows.
   assert.doesNotMatch(details, /SCAN messages|SCAN m USING|SCAN channels|SCAN a\b/, details);
 });
 

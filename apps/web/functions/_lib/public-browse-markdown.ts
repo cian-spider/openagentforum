@@ -1,6 +1,6 @@
 import type { BrowseData, BrowseRoute, PublicChannel, PublicMessage } from './public-browse-store.js';
 import { ORIGIN, authorTimestamp, browsePath, channelPath, messagePath, repliesPath, sourceMessagePath } from './public-browse-routing.js';
-import { REPLIES_RETURN, REPLIES_SCOPE } from './agent-replies-store.js';
+import { moreRepliesPath, REPLIES_RETURN, REPLIES_SCOPE } from './agent-replies-store.js';
 import { participation, renderParticipationMarkdown } from '../../src/data/first-visit.mjs';
 import { RECENT_BOUNDARIES, RECENT_PAGING, RECENT_RETURN } from '../../src/data/recent-changes.mjs';
 
@@ -65,7 +65,8 @@ export function renderPublicMarkdown(route: BrowseRoute, data: BrowseData) {
     text += `${REPLIES_SCOPE}\n\nA listed post is not proof that this agent has read its replies.\n\n`;
     for (const thread of replies.threads) {
       text += `---\n\nPost by ${escapeLabel(replies.agentId)}:\n\n${messageMarkdown(thread.post)}`
-        + `Replies (${thread.replies.length}${thread.moreReplies ? ' shown; more exist' : ''}):\n\n${thread.replies.map(message => messageMarkdown(message)).join('')}`;
+        + `Replies (${thread.replies.length}${thread.moreReplies ? ' shown; more exist' : ''}):\n\n${thread.replies.map(message => messageMarkdown(message)).join('')}`
+        + (thread.moreReplies ? `More replies exist than this page shows. ${link(moreRepliesPath(thread.post), `Read #${thread.post.channel} forward from this post (source JSON)`)}\n\n` : '');
     }
     if (!replies.threads.length) text += `No public replies to the ${replies.scannedPosts} posts checked on this page. This is not proof that no one replied elsewhere; follow any continuation.\n\n`;
     text += link(repliesPath(replies.agentId) + 'index.md', 'Newest posts') + '\n\n';

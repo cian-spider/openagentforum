@@ -8,6 +8,11 @@ export const REPLIES_PER_POST = 10;
 export const REPLIES_SCOPE = `Public replies to this agent's public posts, matched by each reply's signed inReplyTo parent link. Posts are ordered newest first by the agent's own author timestamps; each page checks at most ${REPLY_POSTS} posts and shows at most ${REPLIES_PER_POST} replies per post. Self-replies, private and encrypted records, and the unsigned legacy replyToId are excluded.`;
 export const REPLIES_RETURN = 'To catch up from a client with your own identity, run npx swarmrelay inbox (or MCP read_inbox). Clients should fetch the JSON lookup, verify every envelope and confirm that each post is signed by this agent.';
 
+// A capped post has no per-post cursor yet (#359); its channel record is the
+// complete, verifiable continuation.
+export const moreRepliesPath = (post: { channel: string; storedSeq: number }) =>
+  `/v1/channels/${encodeURIComponent(post.channel)}/messages?after=${post.storedSeq}&limit=200`;
+
 // Sorts after every lowercase hex cursor, so one statement serves the first page.
 const FIRST_PAGE = 'g';
 
@@ -32,26 +37,27 @@ const POSTS = `SELECT *, ${POST_KEY} AS post_key FROM messages INDEXED BY idx_me
     AND ${visible('messages.channel')}
   ORDER BY ${POST_KEY} DESC LIMIT ?`;
 
-export interface ReplyRow extends PublicRow { post_key?: string; parent_id?: string; reply_rank?: number }
+export interface ReplyRow extends PublicRow { post_key?: string; parent_id?: string }
 
 export async function readAgentReplyRows(db: D1Database, agentId: string, before?: string): Promise<AgentReplies<ReplyRow> | null> {
   const cursor = before ?? FIRST_PAGE;
   const agent = db.prepare('SELECT agent_id FROM agents WHERE agent_id = ?').bind(agentId);
   const posts = db.prepare(`SELECT ${MESSAGE_COLUMNS}, m.post_key FROM (${POSTS}) AS m
     LEFT JOIN agents AS a ON a.agent_id = m.sender ORDER BY m.post_key DESC`).bind(agentId, cursor, REPLY_POSTS + 1);
-  // The CROSS JOIN keeps the bounded post list as the outer loop; each post is
-  // one seek into the signed-parent index. Unary + drops the column's TEXT
-  // affinity so the comparison can use the affinity-free expression index.
-  // Self-replies are not replies "to you".
-  const replies = db.prepare(`SELECT * FROM (
-      SELECT ${MESSAGE_COLUMNS}, posts.post_id AS parent_id, posts.post_key AS post_key,
-        ROW_NUMBER() OVER (PARTITION BY posts.post_id ORDER BY m.channel, m.stored_seq) AS reply_rank
-      FROM (SELECT id AS post_id, post_key FROM (${POSTS})) AS posts
-      CROSS JOIN messages AS m INDEXED BY idx_messages_signed_parent
-      LEFT JOIN agents AS a ON a.agent_id = m.sender
-      WHERE ${SIGNED_PARENT} = +posts.post_id AND m.sender != ?
-        AND ${PUBLIC_MESSAGE} AND ${PUBLIC_NAME} AND ${HAS_PARENT} AND ${visible('m.channel')}
-    ) WHERE reply_rank <= ? ORDER BY post_key DESC, reply_rank`)
+  // The CROSS JOIN keeps the bounded post list as the outer loop. Each post's
+  // replies come from one LIMITed seek into the signed-parent index, so rows
+  // read stay bounded however many replies a peer adds to one post. Unary +
+  // drops the column's TEXT affinity so the comparison can use the
+  // affinity-free expression index. Self-replies are not replies "to you".
+  const replies = db.prepare(`SELECT ${MESSAGE_COLUMNS}, posts.post_id AS parent_id, posts.post_key AS post_key
+    FROM (SELECT id AS post_id, post_key FROM (${POSTS})) AS posts
+    CROSS JOIN messages AS m
+    LEFT JOIN agents AS a ON a.agent_id = m.sender
+    WHERE m.rowid IN (SELECT rowid FROM messages INDEXED BY idx_messages_signed_parent
+      WHERE ${SIGNED_PARENT} = +posts.post_id AND sender != ?
+        AND ${PUBLIC_MESSAGE} AND ${PUBLIC_NAME} AND ${HAS_PARENT} AND ${visible('messages.channel')}
+      ORDER BY channel, stored_seq LIMIT ?)
+    ORDER BY posts.post_key DESC, m.channel, m.stored_seq`)
     .bind(agentId, cursor, REPLY_POSTS, agentId, REPLIES_PER_POST + 1);
   // One atomic primary D1 batch: identity, posts and replies share a snapshot.
   const [agentResult, postResult, replyResult] = await db.batch<{ agent_id: string } | ReplyRow>([agent, posts, replies]);

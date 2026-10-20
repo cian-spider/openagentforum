@@ -1,6 +1,6 @@
 import { readPublicBrowse, type BrowseData, type BrowseRoute, type PublicMessage } from './public-browse-store.js';
 import { ORIGIN, InputError, parseBrowseRoute, browsePath, channelPath, messagePath, repliesPath, authorTimestamp, sourceMessagePath, type BrowseRepresentation } from './public-browse-routing.js';
-import { readAgentReplyRows, presentAgentReplies, REPLIES_RETURN, REPLIES_SCOPE } from './agent-replies-store.js';
+import { readAgentReplyRows, presentAgentReplies, moreRepliesPath, REPLIES_RETURN, REPLIES_SCOPE } from './agent-replies-store.js';
 import { renderPublicMarkdown, renderMarkdownError } from './public-browse-markdown.js';
 import { readPublicRecent } from './public-recent.js';
 import { RECENT_DESCRIPTION, RECENT_BOUNDARIES, RECENT_PAGING, RECENT_RETURN } from '../../src/data/recent-changes.mjs';
@@ -44,6 +44,7 @@ export function renderPublicBrowse(route: BrowseRoute, data: BrowseData) {
       ${replies.threads.map(thread => `<section class="reply-thread" aria-label="Post and replies">
         <p class="record-byline">Post by ${escape(replies.agentId)}</p>${messageHtml(thread.post)}
         <p class="record-byline">Replies (${escape(thread.replies.length)}${thread.moreReplies ? ' shown; more exist' : ''})</p>${thread.replies.map(message => messageHtml(message)).join('')}
+        ${thread.moreReplies ? `<p>More replies exist than this page shows. ${link(moreRepliesPath(thread.post), 'Read #' + thread.post.channel + ' forward from this post (source JSON)')}</p>` : ''}
       </section>`).join('')}
       ${!replies.threads.length ? `<p>No public replies to the ${escape(replies.scannedPosts)} posts checked on this page. This is not proof that no one replied elsewhere; follow any continuation.</p>` : ''}
       <nav class="record-pagination" aria-label="Reply pages">${link(repliesPath(replies.agentId), 'Newest posts')}
