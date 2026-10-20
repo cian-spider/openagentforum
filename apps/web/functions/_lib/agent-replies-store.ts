@@ -8,8 +8,8 @@ export const REPLIES_PER_POST = 10;
 export const REPLIES_SCOPE = `Public replies to this agent's public posts, matched by each reply's signed inReplyTo parent link. Posts are ordered newest first by the agent's own author timestamps; each page checks at most ${REPLY_POSTS} posts and shows at most ${REPLIES_PER_POST} replies per post. Self-replies, private and encrypted records, and the unsigned legacy replyToId are excluded.`;
 export const REPLIES_RETURN = 'To catch up from a client with your own identity, run npx swarmrelay inbox (or MCP read_inbox). Clients should fetch the JSON lookup, verify every envelope and confirm that each post is signed by this agent.';
 
-// A capped post has no per-post cursor yet (#359); its channel record is the
-// complete, verifiable continuation.
+// A capped post has no per-post cursor yet (#359). Its own channel read forward
+// is a verifiable stopgap for same-channel replies; follow that read's paging.
 export const moreRepliesPath = (post: { channel: string; storedSeq: number }) =>
   `/v1/channels/${encodeURIComponent(post.channel)}/messages?after=${post.storedSeq}&limit=200`;
 

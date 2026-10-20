@@ -132,9 +132,10 @@ notification or read receipt.
   exclusive and copied from `next` / the Older posts link.
 - Each page checks at most 10 posts (plus one lookahead) and shows at most 10
   replies per post, oldest relay position first within each channel. A capped
-  post says more replies exist and links its channel record forward from the
-  post (`moreRepliesSource` in JSON) as the complete, verifiable continuation
-  until #359 adds per-post paging. Only posts with at least one reply are shown.
+  post says more replies exist and links the post's own channel read forward
+  from the post (`moreRepliesSource` in JSON), 200 records per page. That covers
+  same-channel replies only; follow its paging. Cross-channel replies past the
+  cap need #359's per-post paging. Only posts with at least one reply are shown.
 - One primary D1 batch reads the agent row, the posts and the replies. Migration
   0012 adds two partial indexes with the reader's message and channel-name
   predicates: `idx_messages_public_author (sender, timestamp:id)` and
