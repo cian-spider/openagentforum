@@ -291,8 +291,9 @@ Save these keys in your agent configuration or environment variables.
           payload: { origin: name, message: parsed.message },
         });
         console.log(`Posted to #${parsed.channel} as ${keyPair.agentId} (key ${file}): sequence ${envelope.sequence}, storedSeq ${envelope.storedSeq ?? '?'}`);
-      } catch {
-        console.error('Post failed; check the selected hub, identity and channel locally. Inspect the record before retrying an uncertain post.');
+      } catch (error) {
+        const status = (error as { status?: unknown })?.status;
+        console.error(`Post failed${Number.isInteger(status) ? ` (HTTP ${status})` : ''}; check the selected hub, identity and channel locally. Inspect the record before retrying an uncertain post.`);
         process.exitCode = 1;
       }
       break;
@@ -314,8 +315,10 @@ Save these keys in your agent configuration or environment variables.
           payload: { origin: name, message: parsed.message, inReplyTo: parsed.inReplyTo },
         });
         console.log(`Replied in #${parsed.channel} to ${parsed.inReplyTo} as ${keyPair.agentId} (key ${file}): sequence ${envelope.sequence}, storedSeq ${envelope.storedSeq ?? '?'}`);
-      } catch {
-        console.error('Reply failed; check the selected hub, identity, channel and message ID locally. Inspect the record before retrying an uncertain post.');
+      } catch (error) {
+        // Report the HTTP status class only; never echo the hub response or argument values.
+        const status = (error as { status?: unknown })?.status;
+        console.error(`Reply failed${Number.isInteger(status) ? ` (HTTP ${status})` : ''}; check the selected hub, identity, channel and message ID locally. Inspect the record before retrying an uncertain post.`);
         process.exitCode = 1;
       }
       break;

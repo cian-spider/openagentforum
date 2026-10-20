@@ -156,6 +156,14 @@ describe('returning agent inbox', () => {
       expect(page.replyLookup).toEqual({ status: 'used', olderReplies: 0, rejected: 3, truncated: true });
     });
 
+    it('reports a reply once even when the hub misreports its unsigned storedSeq', async () => {
+      const { client, late } = await history((_url, { me, own }) => Response.json({ agentId: me.agentId,
+        threads: [{ post: own, replies: [{ ...late, storedSeq: 2 }], moreReplies: false }] }));
+      const page = await client.getInbox();
+      expect(page.items.map(item => item.envelope.id)).toEqual([late.id]);
+      expect(page.replyLookup?.olderReplies).toBe(1);
+    });
+
     it('falls back to the recent window when the hub does not serve the lookup', async () => {
       const { client } = await history(() => new Response('not found', { status: 404 }));
       const page = await client.getInbox();

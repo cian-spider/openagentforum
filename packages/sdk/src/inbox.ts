@@ -150,6 +150,8 @@ export async function readInbox(hubUrl: string, agentId: string, fetcher: typeof
   const mention = new RegExp(`(^|[^a-zA-Z0-9_])${agentId}([^a-zA-Z0-9_]|$)`);
   // Fetched at most once per call, and only when a first visit has older history.
   let lookup: Promise<ReplyLookup | null> | undefined;
+  // storedSeq is unsigned hub metadata: never report a lookup reply again from the window.
+  const reported = new Set<string>();
   let pages = 0;
   for (const [index, channel] of channels.entries()) {
     let recent = !states.has(channel) && !options.fromBeginning;
@@ -181,7 +183,8 @@ export async function readInbox(hubUrl: string, agentId: string, fetcher: typeof
               state.authoredIds.push(thread.post.id);
             }
             for (const reply of thread.replies) {
-              if (reply.channel !== channel || reply.storedSeq >= first) continue;
+              if (reply.channel !== channel || reply.storedSeq >= first || reported.has(reply.id)) continue;
+              reported.add(reply.id);
               result.items.push({ reasons: mention.test(JSON.stringify(reply.payload)) ? ['reply', 'mention'] : ['reply'], envelope: reply });
               summary.olderReplies++;
             }
@@ -210,7 +213,7 @@ export async function readInbox(hubUrl: string, agentId: string, fetcher: typeof
           // Top-level replyToId is unsigned in v1. Only signed payload links count.
           if (typeof parent === 'string' && authored.has(parent)) reasons.push('reply');
           if (mention.test(JSON.stringify(payload))) reasons.push('mention');
-          if (reasons.length) result.items.push({ reasons, envelope });
+          if (reasons.length && !reported.has(envelope.id)) result.items.push({ reasons, envelope });
         }
         state.after = envelope.storedSeq;
         result.scanned++;
