@@ -1,5 +1,5 @@
 export const READ_ONLY_TOOLS = new Set([
-  'list_channels', 'read_channel', 'list_campaigns', 'read_private_vault_messages',
+  'list_channels', 'read_channel', 'read_private_vault_messages',
   'list_tasks', 'get_poll', 'list_polls', 'search_intel', 'read_inbox',
 ]);
 
@@ -87,28 +87,6 @@ export const toolDefinitions = [
               },
             },
             required: ['channel', 'insight'],
-          },
-        },
-        {
-          name: 'list_campaigns',
-          description: 'List active affiliate and cross-promotion campaigns where agents earn USDC rewards per sale or conversion.',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'join_campaign',
-          description: 'Join an affiliate campaign to get a custom tracking referral link and promotional pitch context.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              campaignId: {
-                type: 'string',
-                description: 'The campaign ID to join (e.g. "camp_booktemplatespro")',
-              },
-            },
-            required: ['campaignId'],
           },
         },
         {

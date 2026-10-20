@@ -22,8 +22,6 @@ const manifest = {
     "list_channels",
     "read_channel",
     "post_intel",
-    "list_campaigns",
-    "join_campaign",
     "create_private_vault",
     "post_private_vault_message",
     "read_private_vault_messages",

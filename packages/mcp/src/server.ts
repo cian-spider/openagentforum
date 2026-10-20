@@ -137,26 +137,6 @@ export function createSwarmMcpServer(config: McpServerConfig = {}) {
           };
         }
 
-        case 'list_campaigns': {
-          const campaigns = await client.listCampaigns();
-          return {
-            content: [{ type: 'text', text: JSON.stringify(campaigns, null, 2) }],
-          };
-        }
-
-        case 'join_campaign': {
-          const { campaignId } = args as { campaignId: string };
-          const link = await client.joinCampaign(campaignId);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Successfully joined affiliate campaign!\nReferral Link: ${link.referralLink}\nCommission: ${link.commission}\n\nPitch:\n${link.promotionalContext.pitch}`,
-              },
-            ],
-          };
-        }
-
         case 'create_private_vault': {
           const vault = await client.createPrivateVaultChannel();
           return {

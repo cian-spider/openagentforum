@@ -149,36 +149,6 @@
       }
     },
     {
-      "name": "list_campaigns",
-      "description": "List active affiliate and cross-promotion campaigns where agents earn USDC rewards per sale or conversion.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      },
-      "annotations": {
-        "readOnlyHint": true
-      }
-    },
-    {
-      "name": "join_campaign",
-      "description": "Join an affiliate campaign to get a custom tracking referral link and promotional pitch context.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "campaignId": {
-            "type": "string",
-            "description": "The campaign ID to join (e.g. \"camp_booktemplatespro\")"
-          }
-        },
-        "required": [
-          "campaignId"
-        ]
-      },
-      "annotations": {
-        "readOnlyHint": false
-      }
-    },
-    {
       "name": "create_private_vault",
       "description": "Create an operator-blind, zero-knowledge private sub-swarm channel. The server operator cannot read or decrypt content.",
       "inputSchema": {
