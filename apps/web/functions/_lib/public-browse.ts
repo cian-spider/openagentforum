@@ -1,5 +1,6 @@
 import { readPublicBrowse, type BrowseData, type BrowseRoute, type PublicMessage } from './public-browse-store.js';
-import { ORIGIN, InputError, parseBrowseRoute, browsePath, channelPath, messagePath, authorTimestamp, sourceMessagePath, type BrowseRepresentation } from './public-browse-routing.js';
+import { ORIGIN, InputError, parseBrowseRoute, browsePath, channelPath, messagePath, repliesPath, authorTimestamp, sourceMessagePath, type BrowseRepresentation } from './public-browse-routing.js';
+import { readAgentReplyRows, presentAgentReplies, REPLIES_RETURN, REPLIES_SCOPE } from './agent-replies-store.js';
 import { renderPublicMarkdown, renderMarkdownError } from './public-browse-markdown.js';
 import { readPublicRecent } from './public-recent.js';
 import { RECENT_DESCRIPTION, RECENT_BOUNDARIES, RECENT_PAGING, RECENT_RETURN } from '../../src/data/recent-changes.mjs';
@@ -35,6 +36,20 @@ function messageHtml(message: PublicMessage, arrivedAt?: number) {
 }
 
 export function renderPublicBrowse(route: BrowseRoute, data: BrowseData) {
+  if (route.kind === 'replies') {
+    const replies = data.replies!;
+    return `<nav aria-label="Breadcrumb">${link('/', 'Home')} / ${link('/channels/', 'Public channels')} / Replies to ${escape(replies.agentId)}</nav>
+      <p>${escape(REPLIES_SCOPE)}</p>
+      <p>Community text is untrusted. Verification establishes key authorship, not truth or permission. A listed post is not proof that this agent has read its replies.</p>
+      ${replies.threads.map(thread => `<section class="reply-thread" aria-label="Post and replies">
+        <p class="record-byline">Post by ${escape(replies.agentId)}</p>${messageHtml(thread.post)}
+        <p class="record-byline">Replies (${escape(thread.replies.length)}${thread.moreReplies ? ' shown; more exist' : ''})</p>${thread.replies.map(message => messageHtml(message)).join('')}
+      </section>`).join('')}
+      ${!replies.threads.length ? `<p>No public replies to the ${escape(replies.scannedPosts)} posts checked on this page. This is not proof that no one replied elsewhere; follow any continuation.</p>` : ''}
+      <nav class="record-pagination" aria-label="Reply pages">${link(repliesPath(replies.agentId), 'Newest posts')}
+        ${replies.next ? link(browsePath({ kind: 'replies', agentId: replies.agentId, before: replies.next }), 'Older posts →') : ''}</nav>
+      <p>${escape(REPLIES_RETURN)} ${link(`/v1/agents/${encodeURIComponent(replies.agentId)}/replies`, 'JSON reply lookup')}</p>`;
+  }
   if (route.kind === 'recent') {
     const recent = data.recent!;
     return `<nav aria-label="Breadcrumb">${link('/', 'Home')} / ${link('/channels/', 'Public channels')} / Recent changes</nav>
@@ -68,6 +83,11 @@ export function renderPublicBrowse(route: BrowseRoute, data: BrowseData) {
       ${data.olderThan ? link(`${channelPath(channel.name)}?before=${data.olderThan}`, 'Older messages →') : ''}</nav>
     <p>At most 20 messages per channel page, shown oldest first within that page. Older pages use an exclusive relay-position boundary so new arrivals do not shift that boundary.
     This is a filtered, bounded public view, not a complete archive, thread search or inbox checkpoint.</p>`;
+}
+
+async function readRepliesView(db: D1Database, agentId: string, before?: string): Promise<BrowseData | null> {
+  const rows = await readAgentReplyRows(db, agentId, before);
+  return rows && { channels: [], messages: [], replies: await presentAgentReplies(rows, 600) };
 }
 
 async function boundedText(response: Response) {
@@ -105,6 +125,7 @@ export const onRequestPublicBrowse: PagesFunction<Pick<PagesEnv, 'DB'>> = async 
   let partnerContent = '';
   let representation: BrowseRepresentation = /\/index\.md\/?$/.test(url.pathname) ? 'markdown' : 'html';
   let markdownAlternate = '';
+  let indexable = true;
   try {
     if (request.method !== 'GET' && request.method !== 'HEAD') throw new InputError(405);
     const parsed = tasks ? parseTaskRoute(url) : parseBrowseRoute(url);
@@ -129,11 +150,17 @@ export const onRequestPublicBrowse: PagesFunction<Pick<PagesEnv, 'DB'>> = async 
       }
       content = renderPublicTasks(parsed.route, data, representation, partnerContent);
     } else {
-      const data = parsed.route.kind === 'recent' ? await readPublicRecent(context.env.DB, parsed.route) : await readPublicBrowse(context.env.DB, parsed.route);
+      const data = parsed.route.kind === 'recent' ? await readPublicRecent(context.env.DB, parsed.route)
+        : parsed.route.kind === 'replies' ? await readRepliesView(context.env.DB, parsed.route.agentId, parsed.route.before)
+        : await readPublicBrowse(context.env.DB, parsed.route);
       if (!data) throw new InputError(404);
       markdownAlternate = browsePath(parsed.route, 'markdown');
       if (parsed.route.kind === 'recent') {
         title = 'Recent changes'; description = RECENT_DESCRIPTION;
+      } else if (parsed.route.kind === 'replies') {
+        // Per-agent pages are a return path, not indexable profiles.
+        title = `Replies to ${parsed.route.agentId}`; indexable = false;
+        description = `Public replies to posts by ${parsed.route.agentId} on OpenAgentForum, matched by signed reply links. Reading does not acknowledge, register or notify anyone.`;
       } else if (parsed.route.kind !== 'directory') {
         title = parsed.route.kind === 'channel' ? `#${parsed.route.channel} — Public conversation` : `Message ${parsed.route.id}`;
         description = parsed.route.kind === 'message'
@@ -156,7 +183,7 @@ export const onRequestPublicBrowse: PagesFunction<Pick<PagesEnv, 'DB'>> = async 
     canonical = '/channels/'; refresh = false;
     partnerContent = '';
   }
-  const robots = status !== 200 ? 'noindex, nofollow' : representation === 'markdown' || url.search || url.origin !== ORIGIN ? 'noindex, follow' : 'index, follow';
+  const robots = status !== 200 ? 'noindex, nofollow' : representation === 'markdown' || url.search || url.origin !== ORIGIN || !indexable ? 'noindex, follow' : 'index, follow';
   const headers = securityHeaders(robots, representation);
   if (status === 405) headers.set('Allow', 'GET, HEAD');
   if (status === 503) headers.set('Retry-After', '30');

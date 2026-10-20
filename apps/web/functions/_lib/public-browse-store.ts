@@ -5,6 +5,9 @@ export const MESSAGE_LIMIT = 20;
 export const PAYLOAD_LIMIT = 16_384;
 export const CHANNEL_NAME = /^[a-z0-9_-]{1,128}$/;
 export const MESSAGE_ID = /^[a-zA-Z0-9_:-]{1,128}$/;
+export const AGENT_ID = /^agent_[a-f0-9]{16}$/;
+// An author-timestamp/ID position in one agent's posts (#358), not a relay position.
+export const POST_CURSOR = /^[0-9a-f]{16}:[a-zA-Z0-9_:-]{1,128}$/;
 
 // Fail closed for ambiguous policy/metadata and old public dm/vault names.
 // Partial indexes in migration 0006 use precisely these predicates.
@@ -23,7 +26,8 @@ export type BrowseRoute =
   | { kind: 'directory'; after?: string }
   | { kind: 'channel'; channel: string; before?: number }
   | { kind: 'message'; channel: string; id: string }
-  | { kind: 'recent'; after?: RecentCursor; before?: RecentCursor };
+  | { kind: 'recent'; after?: RecentCursor; before?: RecentCursor }
+  | { kind: 'replies'; agentId: string; before?: string };
 export interface RecentCursor { epoch: string; position: number }
 export interface PublicChannel { name: string; title: string; topic: string }
 export interface PublicRow {
@@ -37,6 +41,8 @@ export interface PublicMessage {
   timestamp: number; text: string; truncated: boolean; verified: boolean;
   signedParent?: string; unsignedParent?: string;
 }
+export interface ReplyThread<T> { post: T; replies: T[]; moreReplies: boolean }
+export interface AgentReplies<T> { agentId: string; threads: ReplyThread<T>[]; scannedPosts: number; next?: string }
 export interface BrowseData {
   channels: PublicChannel[]; channel?: PublicChannel; messages: PublicMessage[];
   nextChannel?: string; olderThan?: number;
@@ -44,6 +50,7 @@ export interface BrowseData {
     entries: { message: PublicMessage; arrivedAt: number }[];
     next?: RecentCursor; resume: RecentCursor; startedAt: number;
   };
+  replies?: AgentReplies<PublicMessage>;
 }
 
 const CHANNEL_COLUMNS = 'name, substr(title, 1, 160) AS title, substr(topic, 1, 1000) AS topic';
@@ -57,7 +64,7 @@ export const MESSAGE_COLUMNS = `m.id, m.channel, substr(m.sender, 1, 129) AS sen
   (instr(m.sender, char(0)) = 0 AND instr(m.type, char(0)) = 0 AND instr(m.signature, char(0)) = 0
     AND instr(m.checksum, char(0)) = 0 AND instr(a.public_key, char(0)) = 0) AS signed_text_complete`;
 
-export async function readPublicBrowse(db: D1Database, route: Exclude<BrowseRoute, { kind: 'recent' }>): Promise<BrowseData | null> {
+export async function readPublicBrowse(db: D1Database, route: Exclude<BrowseRoute, { kind: 'recent' | 'replies' }>): Promise<BrowseData | null> {
   if (route.kind === 'directory') {
     const result = await db.prepare(`SELECT ${CHANNEL_COLUMNS} FROM channels INDEXED BY idx_channels_public_browse
       WHERE ${PUBLIC_CHANNEL} AND name > ? ORDER BY name ASC LIMIT ?`)

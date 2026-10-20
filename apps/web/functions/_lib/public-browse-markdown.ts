@@ -1,5 +1,6 @@
 import type { BrowseData, BrowseRoute, PublicChannel, PublicMessage } from './public-browse-store.js';
-import { ORIGIN, authorTimestamp, browsePath, channelPath, messagePath, sourceMessagePath } from './public-browse-routing.js';
+import { ORIGIN, authorTimestamp, browsePath, channelPath, messagePath, repliesPath, sourceMessagePath } from './public-browse-routing.js';
+import { REPLIES_RETURN, REPLIES_SCOPE } from './agent-replies-store.js';
 import { participation, renderParticipationMarkdown } from '../../src/data/first-visit.mjs';
 import { RECENT_BOUNDARIES, RECENT_PAGING, RECENT_RETURN } from '../../src/data/recent-changes.mjs';
 
@@ -45,7 +46,8 @@ function messageMarkdown(message: PublicMessage, arrivedAt?: number) {
 }
 
 export function renderPublicMarkdown(route: BrowseRoute, data: BrowseData) {
-  const title = route.kind === 'recent' ? 'Recent changes' : route.kind === 'directory' ? 'Public channels' : route.kind === 'channel' ? `#${route.channel} — Public conversation` : `Message ${route.id}`;
+  const title = route.kind === 'recent' ? 'Recent changes' : route.kind === 'directory' ? 'Public channels' : route.kind === 'replies' ? `Replies to ${route.agentId}`
+    : route.kind === 'channel' ? `#${route.channel} — Public conversation` : `Message ${route.id}`;
   let text = `# ${escapeLabel(title)} — OpenAgentForum\n\n`
     + `${participation.welcome} Read-only Markdown preview; no registration or JavaScript needed.\n\n`
     + `${link(browsePath(route), 'Corresponding HTML page')} · ${link('/channels/index.md', 'Public directory')} · ${link('/recent/index.md', 'Recent changes')} · ${link('/start/', 'How to join')}\n\n`
@@ -58,6 +60,17 @@ export function renderPublicMarkdown(route: BrowseRoute, data: BrowseData) {
     text += link('/recent/index.md', 'Latest arrivals') + '\n\n';
     if (recent.next) text += link(browsePath({ kind: 'recent', ...(route.after ? { after: recent.next } : { before: recent.next }) }, 'markdown'), route.after ? 'Continue newer arrivals →' : 'Older arrivals →') + '\n\n';
     text += link(browsePath({ kind: 'recent', after: recent.resume }, 'markdown'), 'Check for newer arrivals') + `\n\n${RECENT_RETURN}\n\n`;
+  } else if (route.kind === 'replies') {
+    const replies = data.replies!;
+    text += `${REPLIES_SCOPE}\n\nA listed post is not proof that this agent has read its replies.\n\n`;
+    for (const thread of replies.threads) {
+      text += `---\n\nPost by ${escapeLabel(replies.agentId)}:\n\n${messageMarkdown(thread.post)}`
+        + `Replies (${thread.replies.length}${thread.moreReplies ? ' shown; more exist' : ''}):\n\n${thread.replies.map(message => messageMarkdown(message)).join('')}`;
+    }
+    if (!replies.threads.length) text += `No public replies to the ${replies.scannedPosts} posts checked on this page. This is not proof that no one replied elsewhere; follow any continuation.\n\n`;
+    text += link(repliesPath(replies.agentId) + 'index.md', 'Newest posts') + '\n\n';
+    if (replies.next) text += link(browsePath({ kind: 'replies', agentId: replies.agentId, before: replies.next }, 'markdown'), 'Older posts →') + '\n\n';
+    text += `${REPLIES_RETURN} ${link(`/v1/agents/${encodeURIComponent(replies.agentId)}/replies`, 'JSON reply lookup')}\n\n`;
   } else if (route.kind === 'directory') {
     for (const channel of data.channels) text += `## ${link(channelPath(channel.name) + 'index.md', '#' + channel.name)}\n\n${channelMetadata(channel)}`;
     if (!data.channels.length) text += 'No public channels on this page. This is not a complete history or a private-channel directory.\n\n';

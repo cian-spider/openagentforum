@@ -1,9 +1,10 @@
-import { CHANNEL_NAME, MESSAGE_ID, type BrowseRoute, type PublicMessage, type RecentCursor } from './public-browse-store.js';
+import { AGENT_ID, CHANNEL_NAME, MESSAGE_ID, POST_CURSOR, type BrowseRoute, type PublicMessage, type RecentCursor } from './public-browse-store.js';
 
 export const ORIGIN = 'https://openagentforum.com';
 export type BrowseRepresentation = 'html' | 'markdown';
 export const channelPath = (channel: string) => `/channels/${encodeURIComponent(channel)}/`;
 export const messagePath = (channel: string, id: string) => `${channelPath(channel)}messages/${encodeURIComponent(id)}/`;
+export const repliesPath = (agentId: string) => `/agents/${encodeURIComponent(agentId)}/replies/`;
 export const sourceMessagePath = (message: Pick<PublicMessage, 'channel' | 'storedSeq'>) =>
   `/v1/channels/${encodeURIComponent(message.channel)}/messages?after=${message.storedSeq - 1}&limit=1`;
 export function authorTimestamp(timestamp: number) {
@@ -11,8 +12,10 @@ export function authorTimestamp(timestamp: number) {
   return Number.isFinite(date.getTime()) ? date.toISOString() : 'Invalid author timestamp';
 }
 export function browsePath(route: BrowseRoute, representation: BrowseRepresentation = 'html') {
-  const base = route.kind === 'recent' ? '/recent/' : route.kind === 'directory' ? '/channels/' : route.kind === 'channel' ? channelPath(route.channel) : messagePath(route.channel, route.id);
+  const base = route.kind === 'recent' ? '/recent/' : route.kind === 'directory' ? '/channels/' : route.kind === 'replies' ? repliesPath(route.agentId)
+    : route.kind === 'channel' ? channelPath(route.channel) : messagePath(route.channel, route.id);
   const query = route.kind === 'recent' ? (route.after ? `?after=${recentCursorText(route.after)}` : route.before ? `?before=${recentCursorText(route.before)}` : '')
+    : route.kind === 'replies' ? (route.before ? `?before=${encodeURIComponent(route.before)}` : '')
     : route.kind === 'directory' && route.after ? `?after=${encodeURIComponent(route.after)}`
     : route.kind === 'channel' && route.before !== undefined ? `?before=${route.before}` : '';
   return base + (representation === 'markdown' ? 'index.md' : '') + query;
@@ -33,10 +36,11 @@ export function parseBrowseRoute(url: URL): { route: BrowseRoute; path: string; 
   else if (path === '/channels' || path === '/channels/' || path === '/channels/index.html') route = { kind: 'directory' };
   else if (parts[1] === 'channels' && CHANNEL_NAME.test(parts[2] ?? '') && parts.length === 3) route = { kind: 'channel', channel: parts[2] };
   else if (parts[1] === 'channels' && CHANNEL_NAME.test(parts[2] ?? '') && parts.length === 5 && parts[3] === 'messages' && MESSAGE_ID.test(parts[4])) route = { kind: 'message', channel: parts[2], id: parts[4] };
+  else if (parts[1] === 'agents' && AGENT_ID.test(parts[2] ?? '') && parts.length === 4 && parts[3] === 'replies') route = { kind: 'replies', agentId: parts[2] };
   else throw new InputError(404);
   // Encoded separators must not manufacture path segments.
   if (/%2f|%5c/i.test(url.pathname)) throw new InputError(400);
-  const allowed = route.kind === 'recent' ? ['before', 'after'] : route.kind === 'directory' ? ['after'] : route.kind === 'channel' ? ['before'] : [];
+  const allowed = route.kind === 'recent' ? ['before', 'after'] : route.kind === 'directory' ? ['after'] : route.kind === 'channel' || route.kind === 'replies' ? ['before'] : [];
   url.searchParams.forEach((_, key) => { if (!allowed.includes(key) || url.searchParams.getAll(key).length !== 1) throw new InputError(400); });
   if (route.kind === 'recent') {
     if (url.searchParams.has('after') && url.searchParams.has('before')) throw new InputError(400);
@@ -50,6 +54,11 @@ export function parseBrowseRoute(url: URL): { route: BrowseRoute; path: string; 
     const after = url.searchParams.get('after')!;
     if (!CHANNEL_NAME.test(after)) throw new InputError(400);
     route.after = after;
+  }
+  if (route.kind === 'replies' && url.searchParams.has('before')) {
+    const before = url.searchParams.get('before')!;
+    if (!POST_CURSOR.test(before)) throw new InputError(400);
+    route.before = before;
   }
   if (route.kind === 'channel' && url.searchParams.has('before')) {
     const before = url.searchParams.get('before')!;
