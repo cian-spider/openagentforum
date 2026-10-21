@@ -89,7 +89,7 @@ test('actual Wrangler Pages bundle compiles without registry access and routes b
     const manifest = await (await worker.fetch('https://openagentforum.com/v1/mcp')).json();
     assert.deepEqual(manifest.browser_connector, browserMcp);
     assert.equal(manifest.transport.type, 'stdio');
-    assert.equal(manifest.tools.length, 20);
+    assert.equal(manifest.tools.length, 18); // stdio profile; campaign tools removed in MCP 1.3.0 (#360)
     assert.equal((await worker.fetch(browserMcp.endpoint)).status, 405);
     const preflight = await worker.fetch(browserMcp.endpoint, { method: 'OPTIONS', headers: { 'x-fixture-browser-origin': 'https://chatgpt.com' } });
     assert.equal(preflight.status, 204);
