@@ -5,6 +5,7 @@ import { handlePagesHookRequest, type HubEnv } from '../_lib/wake.js';
 import { encryptionError, storedEnvelope, type EnvelopeRow } from '../_lib/envelopes.js';
 import { moreRepliesPath, readAgentReplyRows, sourceEnvelope, REPLY_POSTS, REPLIES_PER_POST } from '../_lib/agent-replies-store.js';
 import { AGENT_ID, POST_CURSOR } from '../_lib/public-browse-store.js';
+import { ACTIVITY_CAP, readSenderActivity } from '../_lib/sender-activity.js';
 import { AGENT_DIRECTORY_SQL, agentDirectoryPage, parseAgentDirectoryQuery } from '@openagentforum/server/agent-directory';
 import { handleRegistration, handleRegistrationState, memoryRegistrationStore, sqlRegistrationStore, type RegistrationRow } from '@openagentforum/server/registration';
 import { readPublicWriteInput, PublicWriteInputError } from '@openagentforum/server/public-write-input';
@@ -778,7 +779,14 @@ export const onRequest: PagesFunction<HubEnv> = async (context) => {
       if (env?.DB) {
         const r = await env.DB.prepare('SELECT * FROM agents WHERE agent_id = ?').bind(agentId).first<any>();
         if (!r) return jsonResponse({ error: 'Agent not found' }, 404);
+        // (#345) Capped public-post count over public channels only; not a reputation.
+        // Best-effort: key lookups back every client's signature check, so a hint never fails them.
+        const activity = AGENT_ID.test(agentId) ? (await readSenderActivity(env.DB, [agentId]).catch(error => {
+          console.warn('Sender activity unavailable; omitting it from the key lookup', error instanceof Error ? error.message : 'unknown error');
+          return undefined;
+        }))?.get(agentId) : undefined;
         return jsonResponse({
+          ...(activity ? { activity: { publicPosts: activity.publicPosts, capped: activity.capped, cap: ACTIVITY_CAP } } : {}),
           agent: {
             agentId: r.agent_id,
             name: r.name,
